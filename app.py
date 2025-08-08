@@ -3,38 +3,41 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 import os
-import requests
+import gdown
+import base64
+from io import BytesIO
 
 # ======================
-# Load model
+# Konfigurasi
 # ======================
 MODEL_PATH = "best_ct_model.h5"
-MODEL_URL ="https://drive.google.com/uc?id=1_ckKQ2PFAhLJ4lSKK_bc8wIPEO_r72Ou"
-
-# Kelas sesuai dataset
+MODEL_URL = "https://drive.google.com/uc?id=1_ckKQ2PFAhLJ4lSKK_bc8wIPEO_r72Ou"
 CLASS_NAMES = ['hemoragik', 'iskemik', 'normal']
 
-# ===== FUNGSI DOWNLOAD MODEL =====
+# ======================
+# Fungsi Download Model
+# ======================
 def download_model():
     if not os.path.exists(MODEL_PATH):
         with st.spinner("Mengunduh model..."):
-            r = requests.get(MODEL_URL, stream=True)
-            if r.status_code == 200:
-                with open(MODEL_PATH, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        f.write(chunk)
-            else:
-                st.error("Gagal mengunduh model.")
+            try:
+                gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
+            except Exception as e:
+                st.error(f"Gagal mengunduh model: {e}")
                 st.stop()
 
-# ===== PREPROCESSING =====
+# ======================
+# Preprocessing
+# ======================
 def preprocess_image(img):
-    img = img.resize((224, 224))  # Sesuaikan ukuran input model
+    img = img.resize((224, 224))
     img_array = np.array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
-# ===== PREDIKSI =====
+# ======================
+# Prediksi
+# ======================
 def predict(img):
     img_array = preprocess_image(img)
     preds = model.predict(img_array)
@@ -42,7 +45,26 @@ def predict(img):
     pred_conf = np.max(preds) * 100
     return pred_class, pred_conf
 
-# ===== UI STREAMLIT =====
+# ======================
+# Fungsi Preview Center
+# ======================
+def show_image_center(img, max_width=300):
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    img_b64 = base64.b64encode(buffered.getvalue()).decode()
+    st.markdown(
+        f"""
+        <div style="text-align:center;">
+            <img src="data:image/png;base64,{img_b64}" 
+                 style="max-width:{max_width}px; border-radius:10px;"/>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# ======================
+# UI Streamlit
+# ======================
 st.set_page_config(page_title="CT Scan Stroke Classification", layout="centered")
 st.title("🧠 CT Scan Stroke Classification")
 
@@ -56,27 +78,15 @@ uploaded_file = st.file_uploader("Upload gambar CT Scan (.png/.jpg)", type=["png
 
 if uploaded_file:
     img = Image.open(uploaded_file).convert("RGB")
-    
-    # Tampilkan preview kecil di tengah
-    st.markdown(
-        f"""
-        <div style="text-align:center;">
-            <img src="data:image/png;base64,{st.image(img, use_container_width=False, output_format='PNG').data}" 
-                 style="max-width:300px; border-radius:10px;"/>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    show_image_center(img, max_width=300)
 
-    # Tombol aksi di tengah
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
-    with col_btn1:
+    with col_btn2:
         if st.button("Prediksi"):
             pred_class, pred_conf = predict(img)
             st.success(f"**{pred_class}** — {pred_conf:.2f}%")
-    with col_btn2:
+    with col_btn3:
         if st.button("Hapus Gambar"):
-            uploaded_file = None
             st.experimental_rerun()
 else:
     st.info("Silakan upload gambar untuk memulai.")
