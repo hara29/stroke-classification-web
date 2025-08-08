@@ -1,7 +1,9 @@
 import streamlit as st
-import numpy as np
 import tensorflow as tf
+import numpy as np
 from PIL import Image
+import os
+import requests
 
 # ======================
 # Load model
