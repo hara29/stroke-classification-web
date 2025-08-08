@@ -11,7 +11,6 @@ from io import BytesIO
 # Konfigurasi
 # ======================
 MODEL_PATH = "best_ct_model.h5"
-MODEL_URL = "https://drive.google.com/uc?id=1_ckKQ2PFAhLJ4lSKK_bc8wIPEO_r72Ou"
 CLASS_NAMES = ['hemoragik', 'iskemik', 'normal']
 
 # ======================
@@ -20,10 +19,27 @@ CLASS_NAMES = ['hemoragik', 'iskemik', 'normal']
 def download_model():
     if not os.path.exists(MODEL_PATH):
         with st.spinner("Mengunduh model..."):
-            try:
-                gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
-            except Exception as e:
-                st.error(f"Gagal mengunduh model: {e}")
+            file_id = "1_ckKQ2PFAhLJ4lSKK_bc8wIPEO_r72Ou"
+            url = f"https://drive.google.com/uc?export=download&id={file_id}"
+            session = requests.Session()
+            response = session.get(url, stream=True)
+            token = None
+
+            # Cek apakah ada token konfirmasi (untuk file besar)
+            for key, value in response.cookies.items():
+                if key.startswith('download_warning'):
+                    token = value
+
+            if token:
+                params = {'id': file_id, 'confirm': token}
+                response = session.get(url, params=params, stream=True)
+
+            if response.status_code == 200:
+                with open(MODEL_PATH, "wb") as f:
+                    for chunk in response.iter_content(32768):
+                        f.write(chunk)
+            else:
+                st.error("Gagal mengunduh model.")
                 st.stop()
 
 # ======================
