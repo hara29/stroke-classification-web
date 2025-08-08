@@ -3,57 +3,39 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 import os
-import gdown
-import base64
-from io import BytesIO
+import gdown  # pastikan ada di requirements.txt
 
 # ======================
-# Konfigurasi
+# Load model
 # ======================
 MODEL_PATH = "best_ct_model.h5"
+MODEL_ID = "1_ckKQ2PFAhLJ4lSKK_bc8wIPEO_r72Ou"  # ID dari Google Drive
+MODEL_URL = f"https://drive.google.com/uc?id={MODEL_ID}"
+
+# Kelas sesuai dataset
 CLASS_NAMES = ['hemoragik', 'iskemik', 'normal']
 
-# ======================
-# Fungsi Download Model
-# ======================
+# ===== FUNGSI DOWNLOAD MODEL =====
 def download_model():
     if not os.path.exists(MODEL_PATH):
-        with st.spinner("Mengunduh model..."):
-            file_id = "1_ckKQ2PFAhLJ4lSKK_bc8wIPEO_r72Ou"
-            url = f"https://drive.google.com/uc?export=download&id={file_id}"
-            session = requests.Session()
-            response = session.get(url, stream=True)
-            token = None
-
-            # Cek apakah ada token konfirmasi (untuk file besar)
-            for key, value in response.cookies.items():
-                if key.startswith('download_warning'):
-                    token = value
-
-            if token:
-                params = {'id': file_id, 'confirm': token}
-                response = session.get(url, params=params, stream=True)
-
-            if response.status_code == 200:
-                with open(MODEL_PATH, "wb") as f:
-                    for chunk in response.iter_content(32768):
-                        f.write(chunk)
-            else:
-                st.error("Gagal mengunduh model.")
+        with st.spinner("Mengunduh model dari Google Drive..."):
+            try:
+                gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
+            except Exception as e:
+                st.error(f"Gagal mengunduh model: {e}")
                 st.stop()
+        if not os.path.exists(MODEL_PATH):
+            st.error("Model gagal diunduh atau file corrupt.")
+            st.stop()
 
-# ======================
-# Preprocessing
-# ======================
+# ===== PREPROCESSING =====
 def preprocess_image(img):
     img = img.resize((224, 224))
     img_array = np.array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
-# ======================
-# Prediksi
-# ======================
+# ===== PREDIKSI =====
 def predict(img):
     img_array = preprocess_image(img)
     preds = model.predict(img_array)
@@ -61,26 +43,7 @@ def predict(img):
     pred_conf = np.max(preds) * 100
     return pred_class, pred_conf
 
-# ======================
-# Fungsi Preview Center
-# ======================
-def show_image_center(img, max_width=300):
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    img_b64 = base64.b64encode(buffered.getvalue()).decode()
-    st.markdown(
-        f"""
-        <div style="text-align:center;">
-            <img src="data:image/png;base64,{img_b64}" 
-                 style="max-width:{max_width}px; border-radius:10px;"/>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-# ======================
-# UI Streamlit
-# ======================
+# ===== UI STREAMLIT =====
 st.set_page_config(page_title="CT Scan Stroke Classification", layout="centered")
 st.title("🧠 CT Scan Stroke Classification")
 
@@ -88,20 +51,31 @@ st.title("🧠 CT Scan Stroke Classification")
 download_model()
 
 # Load model
-model = tf.keras.models.load_model(MODEL_PATH)
+try:
+    model = tf.keras.models.load_model(MODEL_PATH)
+except Exception as e:
+    st.error(f"Gagal memuat model: {e}")
+    st.stop()
 
 uploaded_file = st.file_uploader("Upload gambar CT Scan (.png/.jpg)", type=["png", "jpg", "jpeg"])
 
 if uploaded_file:
     img = Image.open(uploaded_file).convert("RGB")
-    show_image_center(img, max_width=300)
+    
+    # Preview gambar lebih kecil & center
+    st.markdown(
+        "<div style='text-align:center;'>",
+        unsafe_allow_html=True
+    )
+    st.image(img, width=300)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
-    with col_btn2:
+    col1, col2 = st.columns([1, 1])
+    with col1:
         if st.button("Prediksi"):
             pred_class, pred_conf = predict(img)
             st.success(f"**{pred_class}** — {pred_conf:.2f}%")
-    with col_btn3:
+    with col2:
         if st.button("Hapus Gambar"):
             st.experimental_rerun()
 else:
