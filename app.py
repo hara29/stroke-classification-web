@@ -22,9 +22,13 @@ def download_model():
                 st.stop()
 
 def preprocess_image(img):
+    # konversi ke grayscale jika masih RGB
+    if img.mode != 'L':
+        img = img.convert('L')
     img = img.resize((224, 224))
     img_array = np.array(img) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
+    img_array = np.expand_dims(img_array, axis=-1)
+    img_array = np.expand_dims(img_array, axis=0)   
     return img_array
 
 def predict(img):
@@ -48,19 +52,14 @@ except Exception as e:
 uploaded_file = st.file_uploader("Upload gambar CT Scan (.png/.jpg)", type=["png", "jpg", "jpeg"])
 
 if uploaded_file:
-    img = Image.open(uploaded_file).convert("RGB")
+    img = Image.open(uploaded_file)
 
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
     st.image(img, width=300)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Prediksi"):
-            pred_class, pred_conf = predict(img)
-            st.success(f"**{pred_class}** — {pred_conf:.2f}%")
-    with col2:
-        if st.button("Hapus Gambar"):
-            st.experimental_rerun()
+    if st.button("Prediksi"):
+        pred_class, pred_conf = predict(img)
+        st.success(f"**{pred_class}** — {pred_conf:.2f}%")
 else:
     st.info("Silakan upload gambar untuk memulai.")
