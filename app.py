@@ -53,10 +53,7 @@ uploaded_file = st.file_uploader("Upload gambar CT Scan (.png/.jpg)", type=["png
 
 if uploaded_file:
     img = Image.open(uploaded_file)
-
-    st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
     st.image(img, width=300)
-    st.markdown("</div>", unsafe_allow_html=True)
 
     if st.button("Prediksi"):
         pred_class, pred_conf = predict(img)
